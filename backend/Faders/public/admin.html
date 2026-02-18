@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Admin - Controlador MIDI V2</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { background: #1e1e1e; color: #fff; font-family: sans-serif; padding: 20px; margin: 0; }
+        .panel { width: 100%; max-width: 800px; margin: 0 auto; background: #2d2d2d; padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .tabs { display: flex; gap: 5px; margin-bottom: 10px; border-bottom: 2px solid #444; padding-bottom: 10px; flex-wrap: wrap; }
+        .tab-btn { background: #444; color: #aaa; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 1; min-width: 100px; transition: 0.2s;}
+        .tab-btn.active { background: #00d9ff; color: #000; }
+        
+        .sec-manager { display: flex; gap: 5px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; background: #222; padding: 10px; border-radius: 8px; border: 1px solid #444; }
+        .sec-btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        
+        .fader-item { display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #3d3d3d; padding: 10px 15px; border-radius: 6px; border-left: 5px solid transparent; min-height: 40px; }
+        .fader-info { display: flex; flex-direction: row; align-items: center; gap: 10px; }
+        .item-actions { display: flex; gap: 5px; flex-shrink: 0; }
+        
+        input, select { padding: 10px; border: none; border-radius: 4px; background: #555; color: white; flex: 1; font-size: 16px; width: 100%; }
+        button.action-btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-add { background: #00d9ff; color: #000; }
+        .btn-edit-mode { background: #ffaa00; color: #000; }
+        .btn-cancel { background: #555; color: #fff; display: none; }
+        .btn-save { background: #00ff00; color: #000; width: 100%; margin-top: 25px; font-size: 18px; padding: 15px; text-transform: uppercase; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; }
+        
+        .item-actions button { border: none; border-radius: 4px; cursor: pointer; padding: 8px 12px; font-weight: bold; color: white; }
+        .btn-move { background: #555; }
+        .btn-edit { background: #ffaa00; color: black !important; }
+        .btn-del { background: #ff4444; }
+
+        .add-form { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap; background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; }
+
+        @media (max-width: 650px) {
+            body { padding: 5px; } .panel { padding: 15px; }
+            .item-actions button { padding: 8px; font-size: 12px; }
+            .add-form { flex-direction: column; align-items: stretch; gap: 8px; }
+            .add-form input, .add-form select, .add-form button { width: 100%; max-width: 100% !important; margin: 0; }
+            .sec-btn { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="panel">
+    <h2>⚙️ Configuración Modular</h2>
+    <div class="tabs" id="tabs-container"></div>
+    <div class="sec-manager">
+        <button class="sec-btn" style="background:#00d9ff; color:#000;" onclick="addSection()">➕ Nueva Sección</button>
+        <button class="sec-btn" style="background:#555; color:#fff;" onclick="moveSection(-1)">⬅️ Mover</button>
+        <button class="sec-btn" style="background:#555; color:#fff;" onclick="moveSection(1)">Mover ➡️</button>
+        <button class="sec-btn" style="background:#ffaa00; color:#000;" onclick="renameSection()">✏️ Renombrar</button>
+        <button class="sec-btn" style="background:#ff4444; color:#fff;" onclick="deleteSection()">🗑️ Borrar</button>
+    </div>
+    
+    <div id="item-list"></div>
+    <hr style="border-color: #444; margin: 25px 0;">
+    <h3 id="add-title">➕ Agregar Elemento</h3>
+    
+    <div class="add-form">
+        <input type="text" id="new-label" placeholder="Nombre (ej. Play)">
+        
+        <select id="new-type" style="max-width: 150px;" onchange="toggleType()">
+            <option value="fader">MIDI CC</option>
+            <option value="audio">Audio PC</option>
+        </select>
+
+        <input type="number" id="new-cc" placeholder="CC (0-127)" style="max-width: 100px;">
+        <input type="text" id="new-target" placeholder="App (ej. master, spotify)" style="display: none; max-width: 250px;">
+        <input type="color" id="new-color" value="#00d9ff" style="width: 50px; height: 40px; padding: 0; border: none; background: none; cursor: pointer;">
+        
+        <select id="new-mode" style="display: none; max-width: 130px;">
+            <option value="push">Push</option><option value="toggle">Toggle</option>
+        </select>
+        <select id="new-show-cc" style="display: none; max-width: 140px;">
+            <option value="yes">Ver Texto</option><option value="no">Ocultar Texto</option>
+        </select>
+
+        <button class="action-btn btn-add" id="btn-submit" onclick="submitItem()">+ Agregar</button>
+        <button class="action-btn btn-cancel" id="btn-cancel" onclick="cancelEdit()">Cancelar</button>
+        <button class="action-btn" id="btn-spacer" onclick="addSpacer()" style="background: #444; color: white;">+ Espacio</button>
+    </div>
+
+    <div class="config-global" id="width-config" style="margin-top: 20px; padding: 15px; background: #222; border-radius: 8px; border: 1px solid #444;">
+        <label style="display: block; margin-bottom: 8px; color: #aaa;"><span id="slider-title">Ancho Simétrico:</span> <b id="width-val">120px</b></label>
+        <input type="range" id="width-slider" min="60" max="300" value="120" style="width: 100%;" oninput="updateWidth(this.value)">
+    </div>
+
+    <button class="btn-save" onclick="saveConfig()">💾 Guardar y Sincronizar</button>
+</div>
+
+<script>
+    let db = { sections: [] };
+    let currentTabIdx = 0; 
+    let editingIndex = -1; 
+
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/faders'); const config = await res.json();
+            if (!config.sections) {
+                db.sections = [];
+                if(config.sec1) db.sections.push({ name: 'Faders 1', type: 'faders', width: config.sec1.width || '120px', items: config.sec1.items || [] });
+                if(config.sec2) db.sections.push({ name: 'Faders 2', type: 'faders', width: config.sec2.width || '120px', items: config.sec2.items || [] });
+                if(config.sec3) db.sections.push({ name: 'Pads', type: 'pads', width: config.sec3.width || '150px', items: config.sec3.items || [] });
+                if(config.sec4) db.sections.push({ name: 'Faders 3', type: 'faders', width: config.sec4.width || '120px', items: config.sec4.items || [] });
+            } else { db = config; }
+        } catch(e) {}
+        
+        if(db.sections.length === 0) db.sections.push({ name: 'Principal', type: 'faders', width: '120px', items: [] });
+        setTab(0);
+    }
+
+    function renderTabs() {
+        const tc = document.getElementById('tabs-container'); tc.innerHTML = '';
+        db.sections.forEach((sec, i) => {
+            let b = document.createElement('button');
+            b.className = 'tab-btn' + (i === currentTabIdx ? ' active' : '');
+            b.innerText = (sec.type === 'pads' ? '🎛️ ' : '🎚️ ') + sec.name;
+            b.onclick = () => setTab(i);
+            tc.appendChild(b);
+        });
+    }
+
+    function addSection() {
+        if(db.sections.length >= 8) return alert("⚠️ Límite de 8 secciones alcanzado.");
+        let name = prompt("Escribí el nombre de la sección:"); if (!name) return;
+        let typeChoice = prompt("¿Tipo de sección?\nEscribí '1' para Faders\nEscribí '2' para Botones/Pads", "1");
+        let type = (typeChoice === '2') ? 'pads' : 'faders';
+        db.sections.push({ name: name, type: type, width: type==='pads' ? '150px' : '120px', items: [] });
+        setTab(db.sections.length - 1);
+    }
+
+    function deleteSection() {
+        if(db.sections.length <= 1) return alert("⚠️ Debe quedar al menos 1 sección.");
+        if(confirm(`¿Borrar la sección "${db.sections[currentTabIdx].name}" completa?`)) {
+            db.sections.splice(currentTabIdx, 1); setTab(0);
+        }
+    }
+
+    function moveSection(dir) {
+        let n = currentTabIdx + dir;
+        if(n < 0 || n >= db.sections.length) return;
+        let temp = db.sections[currentTabIdx];
+        db.sections[currentTabIdx] = db.sections[n];
+        db.sections[n] = temp; setTab(n);
+    }
+
+    function renameSection() {
+        let n = prompt("Nuevo nombre:", db.sections[currentTabIdx].name);
+        if(n) { db.sections[currentTabIdx].name = n; renderTabs(); }
+    }
+
+    function toggleType() {
+        let t = document.getElementById('new-type').value;
+        let isPads = db.sections[currentTabIdx].type === 'pads';
+        
+        document.getElementById('new-cc').style.display = (t === 'fader') ? 'block' : 'none';
+        document.getElementById('new-target').style.display = (t === 'audio' || t === 'hotkey' || t === 'open_app') ? 'block' : 'none';
+        
+        if (t === 'hotkey') {
+            document.getElementById('new-target').placeholder = "Tecla (ej. ctrl+z)";
+        } else if (t === 'audio') {
+            document.getElementById('new-target').placeholder = "App (ej. master, spotify)";
+        } else if (t === 'open_app') {
+            document.getElementById('new-target').placeholder = "Ruta (ej. C:\\Studio One\\studioone.exe)";
+        }
+    }
+
+    function setTab(idx) {
+        cancelEdit(); currentTabIdx = idx; renderTabs();
+        let sec = db.sections[currentTabIdx];
+        document.getElementById('add-title').innerText = `➕ Agregar`;
+        const slider = document.getElementById('width-slider');
+        
+        if (sec.type === 'pads') {
+            document.getElementById('new-type').innerHTML = '<option value="fader">MIDI CC</option><option value="hotkey">Hotkey (Teclado)</option><option value="open_app">Abrir App (.exe)</option>';
+            document.getElementById('btn-spacer').style.display = 'none';
+            document.getElementById('new-mode').style.display = 'block'; 
+            document.getElementById('new-show-cc').style.display = 'block'; 
+            document.getElementById('slider-title').innerText = "Tamaño Base (Zoom):"; slider.min = 50; slider.max = 200; 
+        } else {
+            document.getElementById('new-type').innerHTML = '<option value="fader">MIDI CC</option><option value="audio">Audio PC</option>';
+            document.getElementById('btn-spacer').style.display = 'block';
+            document.getElementById('new-mode').style.display = 'none'; 
+            document.getElementById('new-show-cc').style.display = 'none'; 
+            document.getElementById('slider-title').innerText = "Ancho Simétrico:"; slider.min = 60; slider.max = 300;
+        }
+        toggleType();
+        slider.value = parseInt(sec.width); document.getElementById('width-val').innerText = sec.width;
+        renderList();
+    }
+
+    function updateWidth(val) { db.sections[currentTabIdx].width = val + 'px'; document.getElementById('width-val').innerText = val + 'px'; }
+
+    function renderList() {
+        const list = document.getElementById('item-list'); list.innerHTML = '';
+        let sec = db.sections[currentTabIdx];
+        
+        sec.items.forEach((item, index) => {
+            let actionButtons = `<div class="item-actions"><button class="btn-move" onclick="moveItem(${index}, -1)">↑</button><button class="btn-move" onclick="moveItem(${index}, 1)">↓</button>${item.type !== 'spacer' ? `<button class="btn-edit" onclick="startEdit(${index})">✏️</button>` : ''}<button class="btn-del" onclick="deleteItem(${index})">X</button></div>`;
+            let isEditing = (index === editingIndex) ? 'box-shadow: 0 0 10px #ffaa00; border: 1px solid #ffaa00;' : '';
+
+            if (item.type === 'spacer') {
+                list.innerHTML += `<div class="fader-item" style="border-left-color: #555; background: #252525; ${isEditing}"><div class="fader-info"><span style="color: #666;">--- ESPACIO VACÍO ---</span></div>${actionButtons}</div>`;
+            } else {
+                let extra = '';
+                if(item.type === 'hotkey') extra = `<small style="color:#ff00ff;">[TECLA: ${item.target}]</small>`;
+                else if(item.type === 'audio') extra = `<small style="color:#00ff88;">[APP: ${item.target}]</small>`;
+                else if(item.type === 'open_app') extra = `<small style="color:#ffaa00;">[RUTA: ${item.target}]</small>`;
+                else extra = `<small>[CC ${item.cc}]</small>`;
+                
+                if (sec.type === 'pads' && item.type !== 'hotkey' && item.type !== 'open_app') extra += ` <small>[${item.mode ? item.mode.toUpperCase() : 'PUSH'}]</small>`;
+                
+                list.innerHTML += `<div class="fader-item" style="border-left-color: ${item.color}; ${isEditing}"><div class="fader-info"><strong>${item.label}</strong> <span>${extra}</span></div>${actionButtons}</div>`;
+            }
+        });
+    }
+
+    function moveItem(index, dir) { let arr = db.sections[currentTabIdx].items; let n = index + dir; if (n < 0 || n >= arr.length) return; let t = arr[index]; arr[index] = arr[n]; arr[n] = t; if (editingIndex === index) editingIndex = n; else if (editingIndex === n) editingIndex = index; renderList(); }
+    
+    function startEdit(index) {
+        editingIndex = index; let sec = db.sections[currentTabIdx]; let item = sec.items[index];
+        document.getElementById('new-label').value = item.label; document.getElementById('new-color').value = item.color;
+        
+        document.getElementById('new-type').value = item.type === 'open_app' ? 'open_app' : (item.type === 'hotkey' ? 'hotkey' : (item.type === 'audio' ? 'audio' : 'fader'));
+        toggleType();
+        
+        if (item.type === 'hotkey' || item.type === 'audio' || item.type === 'open_app') document.getElementById('new-target').value = item.target;
+        else document.getElementById('new-cc').value = item.cc;
+        
+        if (sec.type === 'pads') { document.getElementById('new-mode').value = item.mode || 'push'; document.getElementById('new-show-cc').value = item.showCc || 'yes'; }
+
+        document.getElementById('add-title').innerText = "✏️ Editando"; document.getElementById('btn-spacer').style.display = 'none';
+        let btn = document.getElementById('btn-submit'); btn.innerText = "💾 Guardar Edición"; btn.classList.replace('btn-add', 'btn-edit-mode');
+        document.getElementById('btn-cancel').style.display = 'inline-block'; document.getElementById('add-title').scrollIntoView({ behavior: 'smooth' }); renderList();
+    }
+
+    function cancelEdit() {
+        editingIndex = -1; document.getElementById('new-label').value = ''; document.getElementById('new-cc').value = ''; document.getElementById('new-target').value = '';
+        document.getElementById('add-title').innerText = `➕ Agregar`;
+        if (db.sections[currentTabIdx].type !== 'pads') document.getElementById('btn-spacer').style.display = 'inline-block';
+        let btn = document.getElementById('btn-submit'); btn.innerText = "+ Agregar"; btn.classList.replace('btn-edit-mode', 'btn-add');
+        document.getElementById('btn-cancel').style.display = 'none'; renderList();
+    }
+
+    function submitItem() {
+        let sec = db.sections[currentTabIdx];
+        const label = document.getElementById('new-label').value, cc = document.getElementById('new-cc').value, target = document.getElementById('new-target').value, color = document.getElementById('new-color').value;
+        const typeVal = document.getElementById('new-type').value;
+
+        if(!label || ((typeVal === 'fader' || typeVal === 'button') && !cc) || ((typeVal === 'audio' || typeVal === 'hotkey' || typeVal === 'open_app') && !target)) return alert("⚠️ Faltan datos.");
+        
+        let obj = { label, color, type: typeVal };
+        if (typeVal === 'fader' || typeVal === 'button') obj.cc = parseInt(cc);
+        if (typeVal === 'audio' || typeVal === 'hotkey' || typeVal === 'open_app') obj.target = target;
+        if (sec.type === 'pads') { obj.mode = document.getElementById('new-mode').value; obj.showCc = document.getElementById('new-show-cc').value; }
+
+        if (editingIndex === -1) { obj.id = Date.now(); sec.items.push(obj); } 
+        else { obj.id = sec.items[editingIndex].id; sec.items[editingIndex] = obj; cancelEdit(); }
+        if (editingIndex === -1) { document.getElementById('new-label').value = ''; document.getElementById('new-cc').value = ''; document.getElementById('new-target').value = ''; }
+        renderList();
+    }
+
+    function addSpacer() { db.sections[currentTabIdx].items.push({ id: Date.now(), type: 'spacer' }); renderList(); }
+    function deleteItem(index) { if (editingIndex === index) cancelEdit(); db.sections[currentTabIdx].items.splice(index, 1); renderList(); }
+    async function saveConfig() { if (editingIndex !== -1) return alert("⚠️ Terminá de editar primero."); try { await fetch('/api/faders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db) }); alert('✅ Guardado.'); } catch (e) { alert("Error"); } }
+
+    function wakeParent() { if (window.parent && window.parent.wakeUpUI) window.parent.wakeUpUI(); }
+    document.body.addEventListener('touchstart', wakeParent); document.body.addEventListener('mousemove', wakeParent);
+    loadConfig();
+</script>
+</body>
+</html>

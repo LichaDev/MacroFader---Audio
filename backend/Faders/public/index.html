@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MIDI Controller Pro V2</title>
+
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="manifest" href="manifest.json">
+    
+    <meta name="theme-color" content="#121212">
+
+    <style>
+        /* Tu CSS va acá abajo */
+        * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; outline: none; box-sizing: border-box; }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: #0a0a0a; color: #ffffff; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: pan-x pan-y; }
+        
+        .nav-zone { position: fixed; top: 0; left: 0; width: 100%; height: 75px; display: flex; justify-content: center; align-items: center; gap: 15px; z-index: 1000; opacity: 0; transition: opacity 0.4s ease, transform 0.4s ease; transform: translateY(-20px); pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); }
+        .nav-zone.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .nav-square { width: 45px; height: 45px; border-radius: 10px; background: #222; border: 1px solid #444; color: #aaa; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .nav-square.active { background: #00d9ff; color: #000; box-shadow: 0 0 15px #00d9ff; transform: scale(1.1); border-color: transparent; }
+        .nav-square.admin-square.active { background: #ffaa00; box-shadow: 0 0 15px #ffaa00; }
+        
+        .page { display: none; width: 100vw; height: 100vh; overflow-y: auto; overflow-x: hidden; }
+        .page.active { display: flex; }
+        .page.pads-container.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--btn-size, 150px), 1fr)); grid-auto-rows: minmax(calc(var(--btn-size, 150px) * 0.8), auto); align-content: center; padding: 6vh 4vw; gap: 15px; }
+        
+        #page_admin.active { display: block; padding-top: 10px; background: #1e1e1e; }
+        iframe.admin-frame { width: 100%; height: 100%; border: none; background: transparent; }
+
+        .faders-container { flex-direction: row; justify-content: center; align-items: center; padding: 2vh 2vw; gap: 10px; overflow-x: auto; }
+        .fader-group { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; flex: 0 0 auto; transition: width 0.2s ease; position: relative; z-index: 10; }
+        .val-display { font-size: clamp(1.2rem, 3.5vh, 2.5rem); font-weight: bold; margin-bottom: 1.5vh; text-shadow: 0 0 10px rgba(255,255,255,0.2); pointer-events: none;}
+        .fader-track { flex-grow: 1; width: 100%; display: flex; justify-content: center; align-items: center; position: relative; overflow: visible; }
+        
+        input[type=range].midi-fader { appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; width: 60vh; height: 50px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-90deg); touch-action: none; margin: 0; }
+        input[type=range].midi-fader::-webkit-slider-runnable-track { width: 100%; height: 10px; background: #222; border-radius: 10px; border: 1px solid #333; }
+        input[type=range].midi-fader::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; height: 50px; width: 30px; background: var(--thumb-color, #00d9ff); border-radius: 6px; margin-top: -21px; box-shadow: 0 0 15px var(--thumb-color, #00d9ff); }
+        label { font-size: clamp(0.7rem, 1.8vh, 1.2rem); font-weight: bold; color: #666; text-align: center; text-transform: uppercase; margin-top: 1vh; pointer-events: none;}
+        .fader-spacer { flex: 0 0 auto; }
+        
+        .midi-pad { width: 100%; height: 100%; background: #1a1a1a; border: 2px solid var(--pad-color, #00d9ff); color: var(--pad-color, #00d9ff); font-size: calc(var(--btn-size, 150px) * 0.2); font-weight: bold; border-radius: 12px; text-transform: uppercase; cursor: pointer; box-shadow: inset 0 0 8px rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; flex-direction: column; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+        .midi-pad span { font-size: calc(var(--btn-size, 150px) * 0.1); color: #666; margin-top: 5px; text-transform: none; text-align: center; word-break: break-all; padding: 0 5px; }
+        .midi-pad.pushed { background: var(--pad-color, #00d9ff); color: #000; transform: scale(0.96); box-shadow: 0 0 12px var(--pad-color, #00d9ff); }
+        .midi-pad.toggled { background: var(--pad-color, #00d9ff); color: #000; transform: scale(1.02); border-color: #fff; box-shadow: 0 0 15px var(--pad-color, #00d9ff), inset 0 0 5px rgba(255,255,255,0.6); }
+    </style>
+</head>
+<body>
+    <div class="nav-zone" id="nav-bar"></div>
+    <div id="pages-container"></div>
+
+    <script>
+        let hideTimeout;
+        const navBar = document.getElementById('nav-bar');
+        const pagesContainer = document.getElementById('pages-container');
+        
+        window.wakeUpUI = function() {
+            navBar.classList.add('visible');
+            clearTimeout(hideTimeout);
+            hideTimeout = setTimeout(() => { navBar.classList.remove('visible'); }, 3000); 
+        }
+        document.body.addEventListener('touchstart', (e) => { if (e.touches[0].clientY < window.innerHeight * 0.25) window.wakeUpUI(); });
+        document.body.addEventListener('mousemove', (e) => { if (e.clientY < window.innerHeight * 0.25) window.wakeUpUI(); });
+
+        let currentPage = localStorage.getItem('activePage');
+
+        function switchPage(pageId) {
+            localStorage.setItem('activePage', pageId);
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-square').forEach(d => d.classList.remove('active'));
+            
+            let targetPage = document.getElementById('page_' + pageId);
+            let targetNav = document.getElementById('nav_' + pageId);
+            if (targetPage) targetPage.classList.add('active');
+            if (targetNav) targetNav.classList.add('active');
+        }
+
+        let ws;
+        let lastTime = Date.now();
+        
+        function conectarWS() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+            ws = new WebSocket(`ws://${window.location.host}`);
+            ws.onmessage = (msg) => { if(JSON.parse(msg.data).type === 'RELOAD') window.location.reload(); };
+            ws.onclose = () => { setTimeout(conectarWS, 1000); };
+        }
+        conectarWS();
+
+        setInterval(() => {
+            let now = Date.now();
+            if (now - lastTime > 5000) {
+                if (ws) ws.close(); 
+                setTimeout(conectarWS, 500); 
+            }
+            lastTime = now;
+            if (!ws || ws.readyState === WebSocket.CLOSED) conectarWS();
+        }, 2000);
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') { if (ws && ws.readyState !== WebSocket.OPEN) { ws.close(); conectarWS(); } }
+        });
+        window.addEventListener('focus', () => {
+            if (ws && ws.readyState !== WebSocket.OPEN) { ws.close(); conectarWS(); }
+        });
+
+        let lastSent = 0;
+
+        async function buildUI() {
+            try {
+                const res = await fetch('/api/faders');
+                let config = await res.json();
+                
+                if (!config.sections) {
+                    config.sections = [
+                        { type: 'faders', items: config.sec1?.items || [], width: config.sec1?.width || '120px' },
+                        { type: 'faders', items: config.sec2?.items || [], width: config.sec2?.width || '120px' },
+                        { type: 'pads', items: config.sec3?.items || [], width: config.sec3?.width || '150px' }
+                    ];
+                }
+
+                navBar.innerHTML = ''; pagesContainer.innerHTML = '';
+
+                config.sections.forEach((sec, index) => {
+                    let sq = document.createElement('div');
+                    sq.className = 'nav-square'; sq.id = 'nav_' + index; sq.innerText = (index + 1).toString();
+                    sq.onclick = () => switchPage(index);
+                    navBar.appendChild(sq);
+
+                    let page = document.createElement('div');
+                    page.id = 'page_' + index; page.className = 'page ' + (sec.type === 'faders' ? 'faders-container' : 'pads-container');
+                    
+                    if (sec.type === 'faders') renderFaders(page, sec); else renderButtons(page, sec);
+                    pagesContainer.appendChild(page);
+                });
+
+                let adminSq = document.createElement('div');
+                adminSq.className = 'nav-square admin-square'; adminSq.id = 'nav_admin'; adminSq.innerText = '⚙️';
+                adminSq.onclick = () => switchPage('admin');
+                navBar.appendChild(adminSq);
+
+                let adminPage = document.createElement('div');
+                adminPage.id = 'page_admin'; adminPage.className = 'page admin-page';
+                adminPage.innerHTML = '<iframe src="admin.html" class="admin-frame"></iframe>';
+                pagesContainer.appendChild(adminPage);
+                
+                if (currentPage === null || !document.getElementById('page_' + currentPage)) currentPage = 0;
+                switchPage(currentPage);
+            } catch (e) { console.error("Error UI:", e); }
+        }
+
+        function renderFaders(container, sectionData) {
+            container.innerHTML = '';
+            if (!sectionData.items) return;
+            const width = sectionData.width || '120px';
+            
+            sectionData.items.forEach(f => {
+                if (f.type === 'spacer') {
+                    const s = document.createElement('div'); s.className = 'fader-spacer'; s.style.width = (parseInt(width)/1.5)+'px'; s.style.minWidth = (parseInt(width)/1.5)+'px';
+                    container.appendChild(s); return;
+                }
+                const group = document.createElement('div');
+                group.className = 'fader-group'; group.style.width = width; group.style.minWidth = width; 
+                
+                const dataAttr = (f.type === 'audio') ? `data-target="${f.target}"` : `data-cc="${f.cc}"`;
+                const storageKey = f.type === 'audio' ? 'audio_' + f.target : 'midi_' + f.cc;
+                const savedVal = localStorage.getItem(storageKey) || "0";
+                
+                group.innerHTML = `<div class="val-display" style="color: ${f.color}">${savedVal}</div><div class="fader-track"><input type="range" min="0" max="127" value="${savedVal}" class="midi-fader" ${dataAttr}></div><label>${f.label}</label>`;
+                const input = group.querySelector('input'); input.style.setProperty('--thumb-color', f.color);
+                
+                input.addEventListener('input', (e) => {
+                    const val = e.target.value; 
+                    group.querySelector('.val-display').innerText = val;
+                    localStorage.setItem(storageKey, val); 
+                    
+                    if (Date.now() - lastSent > 16 && ws.readyState === WebSocket.OPEN) { 
+                        if (f.type === 'audio') ws.send(JSON.stringify({ type: 'AUDIO', target: f.target, val: val }));
+                        else ws.send(JSON.stringify({ type: 'MIDI', cc: e.target.dataset.cc, val: val }));
+                        lastSent = Date.now(); 
+                    }
+                });
+                container.appendChild(group);
+            });
+        }
+
+        function renderButtons(container, sectionData) {
+            container.innerHTML = '';
+            if (!sectionData.items) return;
+            container.style.setProperty('--btn-size', sectionData.width || '150px');
+            
+            sectionData.items.forEach(b => {
+                if (b.type === 'spacer') return;
+                const pad = document.createElement('div');
+                pad.className = 'midi-pad'; pad.style.setProperty('--pad-color', b.color);
+                
+                const mode = b.mode || 'push'; 
+                const isHotkey = b.type === 'hotkey';
+                const isOpenApp = b.type === 'open_app';
+                
+                // Formateo del texto para que no desborde si pones una ruta de Windows larguísima
+                let subText = '';
+                if (isOpenApp) subText = b.target.split('\\').pop(); // Solo muestra "spotify.exe" en vez de "C:\Archivos..."
+                else if (isHotkey) subText = b.target;
+                else subText = `CC ${b.cc}`;
+
+                const ccText = b.showCc === 'no' ? '' : `<br><span>(${subText})</span>`;
+                pad.innerHTML = `${b.label} ${ccText}`;
+
+                let isToggledOn = false;
+                if (mode === 'toggle') {
+                    const memKey = isOpenApp ? 'pad_exe_' + b.id : (isHotkey ? 'pad_hk_' + b.target : 'pad_' + b.cc);
+                    isToggledOn = localStorage.getItem(memKey) === 'true';
+                    if (isToggledOn) pad.classList.add('toggled');
+                }
+
+                const handlePress = (e) => { 
+                    e.preventDefault(); 
+                    
+                    if (isOpenApp) {
+                        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'OPEN_APP', path: b.target }));
+                        pad.classList.add('pushed');
+                        return; 
+                    }
+
+                    if (isHotkey) {
+                        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'HOTKEY', key: b.target }));
+                        pad.classList.add('pushed');
+                        return;
+                    }
+
+                    if (mode === 'toggle') {
+                        isToggledOn = !isToggledOn; 
+                        localStorage.setItem('pad_' + b.cc, isToggledOn);
+                        pad.classList.toggle('toggled', isToggledOn);
+                        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'MIDI', cc: b.cc, val: isToggledOn ? 127 : 0 }));
+                    } else { 
+                        pad.classList.add('pushed');
+                        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'MIDI', cc: b.cc, val: 127 }));
+                    }
+                };
+                
+                const handleRelease = (e) => { 
+                    e.preventDefault(); 
+                    if (isHotkey || isOpenApp) { pad.classList.remove('pushed'); return; }
+                    if (mode !== 'toggle') { 
+                        pad.classList.remove('pushed'); 
+                        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'MIDI', cc: b.cc, val: 0 })); 
+                    }
+                };
+
+                pad.addEventListener('touchstart', handlePress); pad.addEventListener('touchend', handleRelease);
+                pad.addEventListener('mousedown', handlePress); pad.addEventListener('mouseup', handleRelease); pad.addEventListener('mouseleave', handleRelease); 
+                container.appendChild(pad);
+            });
+        }
+        buildUI();
+    </script>
+</body>
+</html>

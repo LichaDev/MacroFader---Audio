@@ -1,0 +1,68 @@
+{
+  "sections": [
+    {
+      "name": "Faders 1",
+      "type": "faders",
+      "width": "68px",
+      "items": [
+        {
+          "label": "Tidal",
+          "color": "#00d9ff",
+          "type": "audio",
+          "target": "TIDALPlayer",
+          "id": 1771116817502
+        },
+        {
+          "label": "Master",
+          "color": "#00d9ff",
+          "type": "audio",
+          "target": "Master",
+          "id": 1771116887940
+        }
+      ]
+    },
+    {
+      "name": "Pads",
+      "type": "pads",
+      "width": "150px",
+      "items": [
+        {
+          "label": "TIDAL",
+          "color": "#00d9ff",
+          "type": "open_app",
+          "target": "TIDAL:",
+          "mode": "push",
+          "showCc": "no",
+          "id": 1771120762060
+        },
+        {
+          "label": "ATRAS",
+          "color": "#00d9ff",
+          "type": "hotkey",
+          "target": "MEDIA_PREV_TRACK",
+          "mode": "push",
+          "showCc": "no",
+          "id": 1771120344223
+        },
+        {
+          "label": "PLAY",
+          "color": "#00d9ff",
+          "type": "hotkey",
+          "target": "MEDIA_PLAY_PAUSE",
+          "mode": "push",
+          "showCc": "no",
+          "id": 1771119292560
+        },
+        {
+          "label": "SIGUIENTE",
+          "color": "#00d9ff",
+          "type": "hotkey",
+          "target": "MEDIA_NEXT_TRACK",
+          "mode": "push",
+          "showCc": "no",
+          "id": 1771120403779
+        }
+      ]
+    }
+  ]
+}

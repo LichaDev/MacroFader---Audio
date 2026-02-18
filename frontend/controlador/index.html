@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Chad Setup Hub</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#050505">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --neon-blue: #00d2ff;
+            --neon-red: #ff0055;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.15);
+        }
+
+        body, html { 
+            margin: 0; padding: 0; height: 100%; width: 100%; 
+            overflow: hidden; background: #000; 
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        /* Contenedores de Pantalla */
+        #macro-container, #faders-panel {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; border: none;
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        /* ESTO ES CLAVE: Evita que el iframe se corte al entrar en pantalla completa */
+        :fullscreen iframe { height: 100vh !important; }
+        :-webkit-full-screen iframe { height: 100vh !important; }
+
+        #macro-container { z-index: 1; }
+        
+        #faders-panel {
+            z-index: 100;
+            transform: translateX(100%);
+            filter: brightness(0.4);
+        }
+
+        .panel-visible {
+            transform: translateX(0) !important;
+            filter: brightness(1) !important;
+        }
+
+        /* EL BOTÓN CHAD RECARGADO */
+        #control-hub {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            width: 80px;
+            height: 80px;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 24px;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Animación de pulso neón */
+        @keyframes neon-pulse {
+            0% { box-shadow: 0 0 5px var(--neon-blue); }
+            50% { box-shadow: 0 0 20px var(--neon-blue); }
+            100% { box-shadow: 0 0 5px var(--neon-blue); }
+        }
+
+        #control-hub {
+            animation: neon-pulse 3s infinite;
+        }
+
+        #control-hub i {
+            font-size: 28px;
+            color: var(--neon-blue);
+            transition: all 0.4s ease;
+            filter: drop-shadow(0 0 8px var(--neon-blue));
+        }
+
+        .hub-active {
+            transform: rotate(90deg) scale(1.1);
+            border-color: var(--neon-red) !important;
+            animation: none !important;
+            box-shadow: 0 0 20px var(--neon-red) !important;
+        }
+
+        .hub-active i {
+            color: var(--neon-red) !important;
+            filter: drop-shadow(0 0 12px var(--neon-red)) !important;
+        }
+
+        #control-hub:active { transform: scale(0.9); }
+    </style>
+</head>
+<body>
+    <div id="activation-shield" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:rgba(0,0,0,0.01);"></div>
+    <div id="control-hub" onclick="toggleLayout()">
+        <i id="main-icon" class="fa-solid fa-layer-group"></i>
+    </div>
+
+    <iframe id="macro-container" src="http://192.168.1.165:8191"></iframe>
+    <iframe id="faders-panel" src="http://192.168.1.165:3000"></iframe>
+
+    <script>
+        let isFaderView = false;
+    const hub = document.getElementById('control-hub');
+    const icon = document.getElementById('main-icon');
+    const faders = document.getElementById('faders-panel');
+    const macro = document.getElementById('macro-container');
+    const shield = document.getElementById('activation-shield');
+
+    function activateFullscreen() {
+        const doc = document.documentElement;
+        if (doc.requestFullscreen) doc.requestFullscreen();
+        else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
+        
+        // Una vez activado, eliminamos el escudo para poder tocar el fondo
+        if(shield) shield.remove();
+    }
+
+    // El escudo atrapa el primer toque donde sea que apoyes el dedo
+    shield.addEventListener('touchstart', activateFullscreen);
+    shield.addEventListener('click', activateFullscreen);
+
+    function toggleLayout() {
+        // Por si acaso, también aquí
+        activateFullscreen();
+
+        isFaderView = !isFaderView;
+        if (isFaderView) {
+            faders.classList.add('panel-visible');
+            hub.classList.add('hub-active');
+            icon.className = "fa-solid fa-sliders"; 
+            macro.style.transform = "scale(0.92) translateY(20px)"; 
+            macro.style.opacity = "0.3";
+        } else {
+            faders.classList.remove('panel-visible');
+            hub.classList.remove('hub-active');
+            icon.className = "fa-solid fa-layer-group"; 
+            macro.style.transform = "scale(1) translateY(0)";
+            macro.style.opacity = "1";
+        }
+    }
+    </script>
+</body>
+</html>

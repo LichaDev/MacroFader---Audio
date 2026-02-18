@@ -1,0 +1,97 @@
+/* Reset total para control absoluto de la pantalla */
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #0a0a0a;
+    color: #ffffff;
+    font-family: 'Segoe UI', sans-serif;
+    overflow: hidden; 
+    touch-action: pan-x pan-y; 
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* --- NAVEGACIÓN FANTASMA --- */
+.nav-zone {
+    position: fixed; top: 0; left: 0; width: 100%; height: 60px;
+    display: flex; justify-content: center; align-items: center; gap: 25px;
+    z-index: 1000;
+    opacity: 0; 
+    transition: opacity 0.4s ease;
+    pointer-events: none; 
+}
+.nav-zone.visible { opacity: 1; pointer-events: auto; }
+
+.nav-dot {
+    width: 12px; height: 12px; border-radius: 4px;
+    background: #333; cursor: pointer; border: 1px solid #555;
+    transition: all 0.2s;
+}
+.nav-dot.active { background: #00d9ff; box-shadow: 0 0 10px #00d9ff; transform: scale(1.3); }
+
+/* --- CONTENEDORES DE SECCIÓN --- */
+.page {
+    display: none; 
+    width: 100vw; height: 100vh; box-sizing: border-box;
+    overflow-y: auto; 
+    overflow-x: hidden;
+}
+
+/* Activar Faders (Flexbox) */
+#page1.active, #page2.active { display: flex; }
+
+/* Activar Botones (Grid) */
+#page3.active { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-auto-rows: minmax(120px, auto);
+    align-content: start; 
+    padding: 10vh 4vw 4vh 4vw; 
+    gap: 15px;
+}
+
+/* El contenedor de los faders (Páginas 1 y 2) */
+.faders-container {
+    flex-direction: row; justify-content: center; align-items: center;
+    padding: 2vh 2vw; gap: 10px; overflow-x: auto;
+}
+
+.fader-group { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; flex: 0 0 auto; transition: width 0.2s ease; }
+.val-display { font-size: clamp(1.2rem, 3.5vh, 2.5rem); font-weight: bold; margin-bottom: 1.5vh; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+.fader-track { flex-grow: 1; width: 100%; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; }
+
+/* El fader perfecto */
+input[type=range].midi-fader { appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; width: 60vh; height: 100%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-90deg); touch-action: none; }
+input[type=range].midi-fader::-webkit-slider-runnable-track { width: 100%; height: 10px; background: #222; border-radius: 10px; border: 1px solid #333; }
+input[type=range].midi-fader::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; height: 50px; width: 30px; background: var(--thumb-color, #00d9ff); border-radius: 6px; margin-top: -21px; box-shadow: 0 0 15px var(--thumb-color, #00d9ff); }
+label { font-size: clamp(0.7rem, 1.8vh, 1.2rem); font-weight: bold; color: #666; text-align: center; text-transform: uppercase; margin-top: 1vh; }
+.fader-spacer { flex: 0 0 auto; }
+
+/* --- SECCIÓN 3: BOTONES --- */
+.midi-pad {
+    width: 100%; height: 100%; box-sizing: border-box; 
+    background: #1a1a1a; border: 2px solid var(--pad-color, #00d9ff);
+    color: var(--pad-color, #00d9ff); font-size: 2rem; font-weight: bold;
+    border-radius: 12px; text-transform: uppercase; cursor: pointer;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.5); 
+    display: flex; justify-content: center; align-items: center; flex-direction: column;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.midi-pad span { font-size: 1rem; color: #666; margin-top: 5px; }
+
+/* Efecto para botones PUSH */
+.midi-pad.pushed { 
+    background: var(--pad-color, #00d9ff); color: #000; 
+    transform: scale(0.95); 
+    box-shadow: 0 0 30px var(--pad-color, #00d9ff); 
+}
+
+/* Efecto para botones TOGGLE */
+.midi-pad.toggled {
+    background: var(--pad-color, #00d9ff); color: #000;
+    transform: scale(1.05);
+    border-color: #fff;
+    box-shadow: 0 0 40px var(--pad-color, #00d9ff), inset 0 0 10px rgba(255,255,255,0.6);
+}
