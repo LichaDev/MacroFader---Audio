@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panel Ecualizador - Chad Hub</title>
+    <style>
+        body { 
+            background: #000; 
+            color: #39ff14; 
+            font-family: 'Segoe UI', sans-serif; 
+            display: flex; 
+            justify-content: space-around; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            overflow: hidden;
+        }
+        .fader-wrapper { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            height: 80%; 
+            width: 30%;
+        }
+        input[type=range] { 
+            appearance: slider-vertical; 
+            -webkit-appearance: slider-vertical; 
+            width: 60px; 
+            height: 100%; 
+            background: #111; 
+            border: 1px solid #39ff14;
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
+            outline: none;
+        }
+        .label { 
+            margin-top: 20px; 
+            font-weight: bold; 
+            font-size: 1.2rem;
+            text-shadow: 0 0 10px #39ff14; 
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="fader-wrapper">
+        <input type="range" min="0" max="127" value="64" id="cc-20">
+        <div class="label">BAJOS</div>
+    </div>
+    <div class="fader-wrapper">
+        <input type="range" min="0" max="127" value="64" id="cc-21">
+        <div class="label">MEDIOS</div>
+    </div>
+    <div class="fader-wrapper">
+        <input type="range" min="0" max="127" value="64" id="cc-22">
+        <div class="label">AGUDOS</div>
+    </div>
+
+    <script>
+        // Nos conectamos al servidor usando la misma IP y puerto que cargó la página
+        const ws = new WebSocket(`ws://${window.location.host}`);
+
+        // Función para enviar los datos MIDI
+        document.querySelectorAll('input[type=range]').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                const ccNumber = e.target.id.split('-')[1]; // Saca el 20, 21 o 22
+                const value = e.target.value;
+
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'MIDI',
+                        cc: ccNumber,
+                        val: value
+                    }));
+                }
+            });
+        });
+
+        // Mantener la conexión viva (Ping)
+        ws.onopen = () => console.log("✅ EQ conectado al servidor");
+        ws.onclose = () => console.log("❌ EQ desconectado");
+    </script>
+</body>
+</html>

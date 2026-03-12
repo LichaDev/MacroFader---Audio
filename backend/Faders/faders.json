@@ -18,6 +18,63 @@
           "type": "audio",
           "target": "Master",
           "id": 1771116887940
+        },
+        {
+          "id": 1771436223793,
+          "type": "spacer"
+        },
+        {
+          "id": 1771436315942,
+          "type": "spacer"
+        },
+        {
+          "label": "40hz",
+          "color": "#ff0000",
+          "type": "fader",
+          "cc": 20,
+          "id": 1771431205700
+        },
+        {
+          "label": "130hz",
+          "color": "#ff5900",
+          "type": "fader",
+          "cc": 21,
+          "id": 1771431230320
+        },
+        {
+          "label": "350hz",
+          "color": "#ffa200",
+          "type": "fader",
+          "cc": 22,
+          "id": 1771431240037
+        },
+        {
+          "label": "520hz",
+          "color": "#ffbb00",
+          "type": "fader",
+          "cc": 23,
+          "id": 1771436677665
+        },
+        {
+          "label": "1100hz",
+          "color": "#ffdd00",
+          "type": "fader",
+          "cc": 24,
+          "id": 1771436801882
+        },
+        {
+          "label": "3500hz",
+          "color": "#eeff00",
+          "type": "fader",
+          "cc": 25,
+          "id": 1771436845949
+        },
+        {
+          "label": "Brillo",
+          "color": "#81ea82",
+          "type": "fader",
+          "cc": 26,
+          "id": 1771436905826
         }
       ]
     },
